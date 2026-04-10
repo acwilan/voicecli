@@ -4,12 +4,12 @@ import PackageDescription
 let package = Package(
     name: "voicecli",
     platforms: [.macOS(.v13)],
-    dependencies: [],
+    products: [
+        .executable(name: "voicecli", targets: ["voicecli"])
+    ],
     targets: [
         .executableTarget(
-            name: "voicecli",
-            dependencies: [],
-            swiftSettings: [.unsafeFlags(["-parse-as-library"])]
+            name: "voicecli"
         ),
     ]
 )
