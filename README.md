@@ -62,12 +62,27 @@ swift build -c release  # For release build
 
 ## Installation
 
-```bash
-# Build release binary
-swift build -c release
+### Homebrew (recommended)
 
-# Install to local bin
+```bash
+brew tap acwilan/voicecli
+brew install voicecli
+```
+
+### Download Binary
+
+Download the latest release from [GitHub Releases](https://github.com/acwilan/voicecli/releases):
+
+```bash
+curl -L https://github.com/acwilan/voicecli/releases/latest/download/voicecli-macos.tar.gz | tar xz
+mv voicecli ~/.local/bin/  # or /usr/local/bin/
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/acwilan/voicecli.git
+cd voicecli
+swift build -c release
 cp .build/release/voicecli ~/.local/bin/
-# or
-cp .build/release/voicecli /usr/local/bin/
 ```

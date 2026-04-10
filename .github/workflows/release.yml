@@ -1,0 +1,61 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get Swift version
+      run: swift --version
+    
+    - name: Build Release
+      run: swift build -c release
+    
+    - name: Test CLI
+      run: |
+        .build/release/voicecli --help || true
+        .build/release/voicecli voices | head -5
+        .build/release/voicecli speak "CI build test" --output /tmp/ci_test.aiff
+        test -f /tmp/ci_test.aiff && echo "Audio file generated successfully"
+    
+    - name: Package Binary
+      run: |
+        mkdir -p dist
+        cp .build/release/voicecli dist/
+        cd dist
+        tar -czf voicecli-macos.tar.gz voicecli
+        shasum -a 256 voicecli-macos.tar.gz > voicecli-macos.tar.gz.sha256
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: voicecli-macos
+        path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: voicecli-macos
+        path: dist/
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
