@@ -1,0 +1,28 @@
+.DS_Store
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Swift Package Manager
+.build/
+Package.resolved
+*.xcodeproj
+
+# Binaries
+voicecli
+*.aiff
+*.wav
+*.mp3
+*.ogg
+
+# Test outputs
+test_output/
+temp/
+
+# OS files
+Thumbs.db
