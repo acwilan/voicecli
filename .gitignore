@@ -14,7 +14,7 @@ Package.resolved
 *.xcodeproj
 
 # Binaries
-voicecli
+/voicecli
 *.aiff
 *.wav
 *.mp3

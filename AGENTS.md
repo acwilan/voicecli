@@ -84,3 +84,31 @@ When modifying this code:
 - Keep the CLI interface stable — it's the public API
 - File I/O should use `FileManager` APIs, not shell commands
 - Audio permissions are required for transcription only
+
+## Commit Message Format
+
+Use **Conventional Commits** format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+- `feat:` — New feature
+- `fix:` — Bug fix
+- `docs:` — Documentation changes
+- `style:` — Code style (formatting, no logic change)
+- `refactor:` — Code refactoring
+- `test:` — Adding or updating tests
+- `chore:` — Build, CI, tooling changes
+
+**Examples:**
+- `feat: add stdin support for speak command`
+- `fix: correct .gitignore pattern for Sources directory`
+- `docs: update README with Homebrew instructions`
+- `chore(ci): split build and release workflows`
+- `refactor: extract input parsing to separate function`

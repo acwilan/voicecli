@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get Swift version
+      run: swift --version
+    
+    - name: Build Debug
+      run: swift build
+    
+    - name: Build Release
+      run: swift build -c release
+    
+    - name: Test CLI
+      run: |
+        .build/release/voicecli --help || true
+        .build/release/voicecli voices | head -5
+        .build/release/voicecli speak "CI build test" --output /tmp/ci_test.aiff
+        test -f /tmp/ci_test.aiff && echo "Audio file generated successfully"

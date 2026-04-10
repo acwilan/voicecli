@@ -1,11 +1,8 @@
-name: Build and Release
+name: Release
 
 on:
   push:
-    branches: [ main ]
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   build:
@@ -23,7 +20,7 @@ jobs:
       run: |
         .build/release/voicecli --help || true
         .build/release/voicecli voices | head -5
-        .build/release/voicecli speak "CI build test" --output /tmp/ci_test.aiff
+        .build/release/voicecli speak "Release build test" --output /tmp/ci_test.aiff
         test -f /tmp/ci_test.aiff && echo "Audio file generated successfully"
     
     - name: Package Binary
@@ -43,7 +40,6 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Download Artifact
