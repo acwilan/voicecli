@@ -9,7 +9,8 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "voicecli"
+            name: "voicecli",
+            path: "Sources/voicecli"
         ),
     ]
 )
