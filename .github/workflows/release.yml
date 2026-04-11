@@ -58,3 +58,62 @@ jobs:
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+    - name: Download release tarball
+      run: |
+        curl -L -o voicecli-macos.tar.gz \
+          "https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/voicecli-macos.tar.gz"
+        SHA256=$(sha256sum voicecli-macos.tar.gz | cut -d' ' -f1)
+        echo "SHA256=$SHA256" >> $GITHUB_ENV
+        echo "Computed SHA256: $SHA256"
+    
+    - name: Checkout homebrew tap
+      uses: actions/checkout@v4
+      with:
+        repository: acwilan/homebrew-voicecli
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        path: homebrew-voicecli
+    
+    - name: Update formula
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        SHA256="${{ env.SHA256 }}"
+        
+        cat > homebrew-voicecli/Formula/voicecli.rb << EOF
+    class Voicecli < Formula
+      desc "macOS native voice CLI for transcription and speech synthesis"
+      homepage "https://github.com/acwilan/voicecli"
+      url "https://github.com/acwilan/voicecli/releases/download/v${VERSION}/voicecli-macos.tar.gz"
+      sha256 "${SHA256}"
+      license "MIT"
+
+      depends_on :macos
+
+      def install
+        bin.install "voicecli"
+      end
+
+      test do
+        assert_match "Usage:", shell_output("#{bin}/voicecli --help 2>&1 || true")
+        system "#{bin}/voicecli", "voices"
+      end
+    end
+    EOF
+    
+    - name: Commit and push formula update
+      run: |
+        cd homebrew-voicecli
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add Formula/voicecli.rb
+        git commit -m "chore(release): update formula for v${{ steps.get_version.outputs.VERSION }}" || echo "No changes to commit"
+        git push
