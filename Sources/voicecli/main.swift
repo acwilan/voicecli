@@ -2,6 +2,11 @@ import Foundation
 import Speech
 import AVFoundation
 
+// Version - injected at build time via sed replacement
+// BUILD_VERSION_MARKER_START
+let VERSION = "dev"
+// BUILD_VERSION_MARKER_END
+
 // Helper for stderr - global since it's commonly needed
 let stderr = Darwin.stderr
 
@@ -9,6 +14,20 @@ let stderr = Darwin.stderr
 struct VoiceCLI {
     static func main() async {
         let arguments = CommandLine.arguments
+        
+        // Handle global flags before commands
+        if arguments.count == 2 {
+            switch arguments[1] {
+            case "--help", "-h":
+                printUsage()
+                exit(0)
+            case "--version", "-v":
+                print(VERSION)
+                exit(0)
+            default:
+                break
+            }
+        }
         
         guard arguments.count > 1 else {
             printUsage()
@@ -36,7 +55,12 @@ struct VoiceCLI {
     }
     
     static func printUsage() {
-        fputs("Usage: voicecli <command> [options]\n", stderr)
+        fputs("Usage: voicecli [options] <command> [options]\n", stderr)
+        fputs("\n", stderr)
+        fputs("Global options:\n", stderr)
+        fputs("  --help, -h                    Show this help message\n", stderr)
+        fputs("  --version, -v                 Show version\n", stderr)
+        fputs("\n", stderr)
         fputs("Commands:\n", stderr)
         fputs("  transcribe <audio-file>       - Transcribe audio to text\n", stderr)
         fputs("  speak <text-or-file> [options] - Convert text to speech\n", stderr)

@@ -16,12 +16,21 @@ jobs:
     - name: Get Swift version
       run: swift --version
     
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Inject version into source
+      run: |
+        sed -i.bak 's/let VERSION = "dev"/let VERSION = "${{ steps.get_version.outputs.VERSION }}"/' Sources/voicecli/main.swift
+    
     - name: Build Release
       run: swift build -c release
     
     - name: Test CLI
       run: |
-        .build/release/voicecli --help || true
+        .build/release/voicecli --help
+        .build/release/voicecli --version
         .build/release/voicecli voices | head -5
         .build/release/voicecli speak "Release build test" --output /tmp/ci_test.aiff
         test -f /tmp/ci_test.aiff && echo "Audio file generated successfully"
@@ -88,26 +97,26 @@ jobs:
         VERSION="${{ steps.get_version.outputs.VERSION }}"
         SHA256="${{ env.SHA256 }}"
         
-        cat > homebrew-voicecli/Formula/voicecli.rb << EOF
-    class Voicecli < Formula
-      desc "macOS native voice CLI for transcription and speech synthesis"
-      homepage "https://github.com/acwilan/voicecli"
-      url "https://github.com/acwilan/voicecli/releases/download/v${VERSION}/voicecli-macos.tar.gz"
-      sha256 "${SHA256}"
-      license "MIT"
-
-      depends_on :macos
-
-      def install
-        bin.install "voicecli"
-      end
-
-      test do
-        assert_match "Usage:", shell_output("#{bin}/voicecli --help 2>&1 || true")
-        system "#{bin}/voicecli", "voices"
-      end
-    end
-    EOF
+        printf '%s\n' \
+          'class Voicecli < Formula' \
+          '  desc "macOS native voice CLI for transcription and speech synthesis"' \
+          '  homepage "https://github.com/acwilan/voicecli"' \
+          "  url \"https://github.com/acwilan/voicecli/releases/download/v${VERSION}/voicecli-macos.tar.gz\"" \
+          "  sha256 \"${SHA256}\"" \
+          '  license "MIT"' \
+          '' \
+          '  depends_on :macos' \
+          '' \
+          '  def install' \
+          '    bin.install "voicecli"' \
+          '  end' \
+          '' \
+          '  test do' \
+          '    assert_match "Usage:", shell_output("#{bin}/voicecli --help 2>&1 || true")' \
+          '    system "#{bin}/voicecli", "voices"' \
+          '  end' \
+          'end' \
+          > homebrew-voicecli/Formula/voicecli.rb
     
     - name: Commit and push formula update
       run: |
