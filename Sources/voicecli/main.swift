@@ -218,8 +218,10 @@ struct VoiceCLI {
         }
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let delegate = SpeakDelegate(continuation: continuation)
+            // Create delegate that holds a strong reference to itself while speech is in progress
+            let delegate = SpeakDelegate(continuation: continuation, synthesizer: synthesizer)
             synthesizer.delegate = delegate
+            delegate.start()
             synthesizer.speak(utterance)
         }
     }
@@ -247,18 +249,45 @@ func readStdin() -> String {
 
 // Delegate for tracking speech synthesis completion
 class SpeakDelegate: NSObject, AVSpeechSynthesizerDelegate {
-    let continuation: CheckedContinuation<Void, Error>
+    private let continuation: CheckedContinuation<Void, Error>
+    private weak var synthesizer: AVSpeechSynthesizer?
+    private var selfReference: SpeakDelegate?
     
-    init(continuation: CheckedContinuation<Void, Error>) {
+    init(continuation: CheckedContinuation<Void, Error>, synthesizer: AVSpeechSynthesizer) {
         self.continuation = continuation
+        self.synthesizer = synthesizer
+        super.init()
+    }
+    
+    func start() {
+        // Keep a strong reference to ourselves until speech finishes
+        selfReference = self
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         continuation.resume()
+        selfReference = nil
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         continuation.resume(throwing: NSError(domain: "VoiceCLI", code: 4, userInfo: [NSLocalizedDescriptionKey: "Speech synthesis cancelled"]))
+        selfReference = nil
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance) {
+        // Handle pause if needed
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didContinue utterance: AVSpeechUtterance) {
+        // Handle continue if needed
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        // Handle start if needed
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {
+        // Handle range updates if needed
     }
 }
 
