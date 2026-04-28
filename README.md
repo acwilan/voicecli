@@ -9,6 +9,16 @@ macOS native voice CLI — transcribe audio to text and synthesize speech.
 voicecli transcribe /path/to/audio.m4a
 ```
 
+### Transcribe with specific locale
+```bash
+voicecli transcribe /path/to/audio.m4a --locale es-GT
+```
+
+### List supported STT locales
+```bash
+voicecli locales
+```
+
 ### Text to speech (play via speaker)
 ```bash
 voicecli speak "Hello world"
@@ -17,6 +27,11 @@ voicecli speak "Hello world"
 ### Text to speech (save to file)
 ```bash
 voicecli speak "Hello world" --output /path/to/output.aiff
+```
+
+### Text to speech with specific locale
+```bash
+voicecli speak "Hola mundo" --locale es-MX
 ```
 
 ### Text to speech from file
@@ -35,11 +50,21 @@ cat response.md | voicecli speak - --output response.aiff
 voicecli voices
 ```
 
+### List supported STT locales
+```bash
+voicecli locales
+```
+
+## Options for `transcribe`
+
+- `--locale <locale>` — Recognition locale (e.g., `en-US`, `es-GT`). See `voicecli locales` for supported locales.
+
 ## Options for `speak`
 
 - `--output <path>` — Save audio to file instead of playing
 - `--voice <voice-id>` — Use specific voice (see `voicecli voices`)
 - `--rate <0.0-1.0>` — Speech rate (default: 0.5)
+- `--locale <locale>` — Select voice by locale (e.g., `en-US`, `es-MX`). Used as fallback if `--voice` not specified.
 
 ## Speak Input Detection
 
