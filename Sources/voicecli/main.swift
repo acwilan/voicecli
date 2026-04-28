@@ -44,6 +44,8 @@ struct VoiceCLI {
                 try await speakCommand(arguments: arguments)
             case "voices":
                 listVoices()
+            case "locales":
+                listLocales()
             default:
                 print("Unknown command: \(command)", to: stderr)
                 exit(1)
@@ -62,14 +64,20 @@ struct VoiceCLI {
         fputs("  --version, -v                 Show version\n", stderr)
         fputs("\n", stderr)
         fputs("Commands:\n", stderr)
-        fputs("  transcribe <audio-file>       - Transcribe audio to text\n", stderr)
+        fputs("  transcribe <audio-file> [--locale <locale>]\n", stderr)
+        fputs("                                 - Transcribe audio to text\n", stderr)
         fputs("  speak <text-or-file> [options] - Convert text to speech\n", stderr)
         fputs("  voices                         - List available voices\n", stderr)
+        fputs("  locales                        - List supported locales for STT\n", stderr)
         fputs("\n", stderr)
         fputs("Speak options:\n", stderr)
         fputs("  --output <path>               - Save to file (default: play via speaker)\n", stderr)
         fputs("  --voice <voice-name>          - Use specific voice (default: system default)\n", stderr)
         fputs("  --rate <rate>                 - Speech rate 0.0-1.0 (default: 0.5)\n", stderr)
+        fputs("  --locale <locale>             - Locale for speech (e.g., en-US, es-GT)\n", stderr)
+        fputs("\n", stderr)
+        fputs("Transcribe options:\n", stderr)
+        fputs("  --locale <locale>             - Locale for recognition (e.g., en-US, es-GT)\n", stderr)
         fputs("\n", stderr)
         fputs("Speak input:\n", stderr)
         fputs("  Plain text:  voicecli speak \"Hello world\"\n", stderr)
@@ -78,12 +86,31 @@ struct VoiceCLI {
     }
     
     static func transcribeCommand(arguments: [String]) async throws {
-        guard arguments.count > 2 else {
-            fputs("Usage: voicecli transcribe <audio-file>\n", stderr)
-            exit(1)
+        // Parse arguments
+        var audioPath: String?
+        var localeIdentifier: String?
+        
+        var i = 2
+        while i < arguments.count {
+            let arg = arguments[i]
+            switch arg {
+            case "--locale":
+                i += 1
+                if i < arguments.count {
+                    localeIdentifier = arguments[i]
+                }
+            default:
+                if audioPath == nil {
+                    audioPath = arg
+                }
+            }
+            i += 1
         }
         
-        let audioPath = arguments[2]
+        guard let audioPath = audioPath else {
+            fputs("Usage: voicecli transcribe <audio-file> [--locale <locale>]\n", stderr)
+            exit(1)
+        }
         
         // Request speech recognition authorization
         let authStatus = await requestSpeechAuthorization()
@@ -91,9 +118,17 @@ struct VoiceCLI {
             throw NSError(domain: "VoiceCLI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Speech recognition not authorized. Check System Settings > Privacy & Security > Speech Recognition"])
         }
         
-        let recognizer = SFSpeechRecognizer()
+        // Create recognizer with locale if specified
+        let recognizer: SFSpeechRecognizer?
+        if let localeIdentifier = localeIdentifier {
+            let locale = Locale(identifier: localeIdentifier)
+            recognizer = SFSpeechRecognizer(locale: locale)
+        } else {
+            recognizer = SFSpeechRecognizer()
+        }
+        
         guard let recognizer = recognizer else {
-            throw NSError(domain: "VoiceCLI", code: 2, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer not available"])
+            throw NSError(domain: "VoiceCLI", code: 2, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer not available" + (localeIdentifier != nil ? " for locale \(localeIdentifier!)" : "")])
         }
         
         let url = URL(fileURLWithPath: audioPath)
@@ -130,6 +165,7 @@ struct VoiceCLI {
         var inputSource: String?
         var outputPath: String?
         var voiceName: String?
+        var localeIdentifier: String?
         var rate: Float = 0.5
         
         var i = 2
@@ -150,6 +186,11 @@ struct VoiceCLI {
                 i += 1
                 if i < arguments.count {
                     rate = Float(arguments[i]) ?? 0.5
+                }
+            case "--locale":
+                i += 1
+                if i < arguments.count {
+                    localeIdentifier = arguments[i]
                 }
             default:
                 if inputSource == nil {
@@ -183,10 +224,10 @@ struct VoiceCLI {
         
         if let outputPath = outputPath {
             // Save to file using 'say' command
-            try await saveToFile(text: text, path: outputPath, voice: voiceName, rate: rate)
+            try await saveToFile(text: text, path: outputPath, voice: voiceName, locale: localeIdentifier, rate: rate)
         } else {
             // Play via speaker
-            try await playViaSpeaker(text: text, voice: voiceName, rate: rate)
+            try await playViaSpeaker(text: text, voice: voiceName, locale: localeIdentifier, rate: rate)
         }
     }
     
@@ -198,12 +239,25 @@ struct VoiceCLI {
         }
     }
     
-    static func saveToFile(text: String, path: String, voice: String?, rate: Float) async throws {
+    static func listLocales() {
+        let locales = SFSpeechRecognizer.supportedLocales().sorted { $0.identifier < $1.identifier }
+        print("Supported locales for speech recognition:")
+        for locale in locales {
+            let languageName = Locale.current.localizedString(forLanguageCode: locale.languageCode ?? "") ?? locale.identifier
+            print("  \(locale.identifier) - \(languageName)")
+        }
+    }
+    
+    static func saveToFile(text: String, path: String, voice: String?, locale: String?, rate: Float) async throws {
         var args = ["-o", path]
         
         if let voice = voice {
             args.append("-v")
             args.append(voice)
+        } else if let locale = locale {
+            // If no voice specified but locale is, try to use a voice for that locale
+            args.append("-v")
+            args.append(locale)
         }
         
         // 'say' command doesn't have rate control directly, but we can pipe the text
@@ -226,7 +280,7 @@ struct VoiceCLI {
         print("Saved to: \(path)", to: stderr)
     }
     
-    static func playViaSpeaker(text: String, voice: String?, rate: Float) async throws {
+    static func playViaSpeaker(text: String, voice: String?, locale: String?, rate: Float) async throws {
         let synthesizer = AVSpeechSynthesizer()
         
         let utterance = AVSpeechUtterance(string: text)
@@ -238,6 +292,16 @@ struct VoiceCLI {
                 utterance.voice = voice
             } else if let voice = AVSpeechSynthesisVoice(language: voiceName) {
                 utterance.voice = voice
+            }
+        }
+        
+        // Set locale if specified
+        if let localeIdentifier = locale {
+            if utterance.voice == nil {
+                // If no voice specified, set voice by locale
+                if let voice = AVSpeechSynthesisVoice(language: localeIdentifier) {
+                    utterance.voice = voice
+                }
             }
         }
         
